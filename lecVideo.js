@@ -1,137 +1,129 @@
-// YouTube API 키
- const apiKey = 'AIzaSyArivYMriACjf4a5097KcqUOJLmAuFi0cw';
+Dropzone.autoDiscover = false;
 
-// YouTube 동영상 ID
-const CCIM_videoID = document.querySelector("#board_wrap_videoId").getAttribute("videoId");
-
-// 동영상 플레이어 변수
-let player;
-
-// 마지막으로 기록된 시간
-let schs_fnpo = document.querySelector("#board_wrap_fnpo").getAttribute("schsFnpo");
-
-//영상의 총 재생시간 변수
-let schs_endpo = document.querySelector("#board_wrap_endpo").getAttribute("schsEnpo");
-
-let ccim_NO = document.querySelector("#board_wrap_ccim_NO").getAttribute("ccimNo");
-let occ_NO = document.querySelector("#board_wrap_occ_NO").getAttribute("occNo");
-
-function onYouTubeIframeAPIReady() {
-    player = new YT.Player('youtubeVideo', {
-        height: '500',
-        width: '850',
-        videoId: CCIM_videoID,
-        events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange,
-            'onPlayerPlaybackRateChange': onPlayerPlaybackRateChange
+$(document).ready(function () {
+    // Dropzone 설정
+    var dropzone = new Dropzone("#dropzoneForm", {
+        url: "/submit/send",
+        method: "post",
+        autoProcessQueue: false, // 자동으로 보내기. true : 파일 업로드 되자마자 서버로 요청, false : 서버에는 올라가지 않은 상태.
+        paramName: "files",  // 파일 파라미터 이름
+        uploadMultiple: true,  // 다중 파일 업로드 활성화
+        maxFiles: 5,  // 최대 업로드 파일 수
+        maxFilesize: 5,  // 최대 파일 크기 (MB)
+        parallelUploads: 5,  // 병렬 업로드 수
+        dictDefaultMessage: "파일을 여기에 드래그하세요 또는 클릭하세요. 최대 파일 갯수 : 5개",  // 기본 메시지
+        dictRemoveFile: "파일 삭제",  // 파일 삭제 버튼 텍스트
+        addRemoveLinks: true,  // 파일 추가/삭제 링크 표시 여부
+        dictMaxFilesExceeded: "더 이상 파일을 업로드할 수 없습니다.",  // 최대 파일 개수 초과 시 메시지
+        init: function () {
+            this.on("maxfilesexceeded", function (file) {
+                // 최대 파일 업로드 개수 초과 시 동작
+                showAlert("최대 5개까지만 업로드 가능합니다.");
+                this.removeFile(file); // 초과된 파일 제거
+            });
+            this.on("complete", function (file) {
+                // 업로드가 완료된 후의 동작
+                if (this.getUploadingFiles().length === 0 && this.getQueuedFiles().length === 0) {
+                    // 모든 파일 업로드가 완료되었을 때, 추가 동작을 수행하거나 폼 제출 등
+                    this.removeAllFiles(); // 모든 파일 제거
+                }
+            });
         }
     });
-}
-
-//마지막 재생위치에서로 이동해서 플레이
-function onPlayerReady(event) {
-    event.target.playVideo(); // 플레이어 재생
-    player.seekTo(schs_fnpo); // 마지막으로 이동
-    RUN_TM = event.target.getDuration(); //재생시간 총 시간에서 5초를 뺌
-    schs_endpo = event.target.getDuration(); // 영상의 총 재생 시간을 가져옴
-}
-
-// 일정시간간격 반복할 함수(저장용)
-let recordInterval;
-let finishInterval;
-
-function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.PLAYING) {
-        if (player.getCurrentTime() < schs_fnpo) {
-            clearInterval(recordInterval);
+// Dropzone의 파일 업로드와 관련된 이벤트 핸들러 등록
+    dropzone.on("sending", function (file, xhr, formData) {
+        // 파일이 업로드되기 전의 동작
+        // 추가적인 데이터를 formData에 추가할 수 있음
+        if (!formData.has("occ_no")) {
+            formData.append("occ_no", document.getElementsByName("occ_no")[0].value);
         }
-
-        if (event.target.getCurrentTime() > Number(schs_fnpo) + 1) {
-            event.target.seekTo(schs_fnpo);
+        if (!formData.has("stud_no")) {
+            formData.append("stud_no", document.getElementsByName("stud_no")[0].value);
         }
-
-        if (event.target.getCurrentTime() >= RUN_TM) {
-            player.pauseVideo();
-            player.seekTo(schs_fnpo);
+        if (!formData.has("amc_no")) {
+            formData.append("amc_no", document.getElementsByName("amc_no")[0].value);
         }
-        if (recordInterval) clearInterval(recordInterval);
-        if (finishInterval) clearInterval(finishInterval);
-
-        finishPosition();
-        finishInterval = setInterval(finishPosition, 1000);
-
-        //5초마다 MAX_POSI와 현재 시간을 저장한다
-        if (player.getCurrentTime() > schs_fnpo) {
-            recordInterval = setInterval(updatePosition, 5000);
+        if (!formData.has("submit_ct")) {
+            formData.append("submit_ct", document.getElementsByName("submit_ct")[0].value);
         }
-    }
+        formData.append("files", file);
+    });
+    dropzone.on("success", function (file, response) {
+        // 업로드가 완료된 후의 동작
+        // 서버에서 전달받은 응답(response)를 확인하여 추가 동작 수행 가능
+        console.log("테스트 확인 입니다.");
+        // 폼을 서버에 제출
+        $("#insert_form").submit();
+        window.location.href = '/amc/amcView' + '?amc_no=' + document.getElementsByName("amc_no")[0].value;
+    });
+// 기타 Dropzone 이벤트 등록 가능
+    $("#insert_form").submit(function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        dropzone.processQueue(); // Dropzone에 파일 업로드 수행
+    });
 
-    //일시정지중에는 반복을 멈춘다
-    //일시정지한 시간을 기록한다
-    if (event.data === YT.PlayerState.PAUSED) {
-        clearInterval(recordInterval);
-        clearInterval(finishInterval);
-        if (event.target.getCurrentTime() <= schs_fnpo + 5) {
-            updatePosition();
-        }
-    }
-    if (event.data === YT.PlayerState.ENDED) {
-        event.target.seekTo(event.target.getDuration() - 1);
-        event.target.pauseVideo();
-    }
+});
 
-}
+function submitAmfi() {
+    let dropzone = Dropzone.forElement("#dropzoneForm");
+    let form = document.querySelector('form');
 
-// requestPost 함수 정의, 데이터값을 post로 넘기기
-function requestPost(schs_fnpo, schs_endpo) {
-    schs_fnpo = Math.floor(player.getCurrentTime());
-    schs_endpo = Math.floor(player.getDuration());
-    ccim_NO = document.querySelector("#board_wrap_ccim_NO").getAttribute("ccimNo");
-    occ_NO = document.querySelector("#board_wrap_occ_NO").getAttribute("occNo");
-    //해당하는 서버 엔드포인트 URL
-    if (schs_fnpo > document.querySelector("#board_wrap_fnpo").getAttribute("schsFnpo")) {
-        const url = `/listenLec/savePo?ccim_NO=${ccim_NO}&occ_NO=${occ_NO}&schs_fnpo=${schs_fnpo}&schs_endpo=${schs_endpo}`;
-        const data = {
-            schs_fnpo: schs_fnpo,
-            schs_endpo: schs_endpo
-        }
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json' // 데이터 형식 지정
-            },
-            body: JSON.stringify(data) // 객체를 JSON 문자열로 변환하여 전송
-        })
-            .then(response => // 특정 URL로 리다이렉트
-                window.location.href = "/listenLec/lecList?occ_NO=" + occ_NO // 원하는 URL로 "/new-page" 부분을 바꿔주세요
-            ) // 응답을 JSON 형식으로 파싱
-            .then(data => console.log('Watch time successfully sent to the server:', data)) // 처리된 데이터를 콘솔에 출력
-            .catch(error => console.error('Error:', error)); // 오류 처리
+    if (dropzone.getQueuedFiles().length === 0) {
+        // 파일이 없는 경우
+        Swal.fire({
+            title: "파일이 없습니다.",
+            text: "등록된 파일이 없습니다. 과제만 등록하시겠습니까?",
+            icon: "info",
+            showCancelButton: true,
+            confirmButtonText: "예",
+            cancelButtonText: "아니오"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 확인을 눌렀을 때의 동작 (예를 들어, 과제 등록)
+                console.log("과제 등록");
+                if (checkNullAmc()) {
+                    form.submit();
+                    // 여기에 추가적인 동작을 추가하십시오.
+                }
+            } else {
+                // 아니오를 눌렀을 때의 동작 (예를 들어, 다른 동작 수행)
+                console.log("사용자가 아니오를 선택했습니다.");
+            }
+        });
     } else {
-        window.location.href = "/listenLec/lecList?occ_NO=" + occ_NO;
+        // 파일이 있는 경우
+        Swal.fire({
+            title: "파일이 등록되었습니다.",
+            text: "파일이 등록되어 있습니다. 과제 등록하시겠습니까?",
+            icon: "info",
+            showCancelButton: true,
+            confirmButtonText: "예",
+            cancelButtonText: "아니오"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 확인을 눌렀을 때의 동작 (예를 들어, 과제 등록)
+                if (checkNullAmc()) {
+                    dropzone.processQueue();
+                    // 여기에 추가적인 동작을 추가하십시오.
+                }
+                console.log("과제 등록");
+                // 여기에 추가적인 동작을 추가하십시오.
+            } else {
+                // 아니오를 눌렀을 때의 동작 (예를 들어, 다른 동작 수행)
+                console.log("사용자가 아니오를 선택했습니다.");
+            }
+        });
     }
 }
 
-//시간기록
-function updatePosition() {
-    schs_fnpo = Math.floor(player.getCurrentTime());
-    console.log("schs_endpo========================================" + schs_endpo);
-    schs_endpo = schs_endpo > schs_fnpo ? schs_endpo : schs_fnpo; // 두개 변수 비교해서 참일시, 거짓일시 리턴 값
-    console.log(schs_fnpo);
-    console.log(schs_endpo);
-}
-
-//영상 끝나기 x초전에 정지 (마지막 추천영상 안뜨기 위한 함수)
-function finishPosition() {
-    if (Math.floor(player.getCurrentTime()) >= RUN_TM) {
-        player.pauseVideo();
-    }
-}
-
-//재생속도가 변경될 때 1을 초과하면 1로 변경 (재생속도 빠른배속은 막는 함수)
-function onPlayerPlaybackRateChange(event) {
-    if (event.target.getPlaybackRate() > 1) {
-        event.target.setPlaybackRate(1);
-    }
+function showAlert(message) {
+    Swal.fire({
+        icon: 'warning',
+        iconColor: '#12192c',
+        title: '알림',
+        text: message,
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: '확인'
+    });
 }
